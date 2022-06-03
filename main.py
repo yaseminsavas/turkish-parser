@@ -1,24 +1,26 @@
 '''
 
-Project Title: Graph - Based BiLSTM & Stack LSTM Models in Turkish
+Project Title: Graph - Based BiLSTM in Turkish
 Author: Yasemin Savaş - 54085
 
-Codes related to the BiLSTM implementation are taken & adapted from here:
-
+This project is based on this paper:
 Paper Link: https://www.transacl.org/ojs/index.php/tacl/article/viewFile/885/198
 Github Repository: https://github.com/elikip/bist-parser
 
-Note:
-I used GloVe embeddings from here: https://github.com/inzva/Turkish-GloVe
+Notes:
+1. I used GloVe embeddings from here: https://github.com/inzva/Turkish-GloVe
+
+2. The implementation is based on PyTorch.
+
+3. There are subtle differences between the original implementation and this repo.
+(Learning rate is 0.001, MLP activations are ReLu, a weight decay exists, the loss is negative hinge embedding loss..)
 
 '''
 
 from collections import Counter, OrderedDict
 from src.utils import *
 import os
-from os import path
-from src import bilstm_model, stack_model
-from src.main_utils import main_train
+from src import bilstm_model
 
 print("Gathering the data...")
 
@@ -37,40 +39,36 @@ with open(train_directory, 'r') as file:
         rel += [node.relation for node in sentence if isinstance(node, ConllEntry)]
 
 word_ids = {w: i for i, w in enumerate(words.keys())}
-position = list(OrderedDict.fromkeys(pos))
-relations = list(OrderedDict.fromkeys(rel))
+pos_tag = list(OrderedDict.fromkeys(pos))
+rel_tag = list(OrderedDict.fromkeys(rel))
 
 print("Data gathering is done.")
 print(" ")
 
-# TODO: Don't forget to use this
-#if path.isdir(f"turkish-parser/results/") is False:
-#    os.mkdir(f"turkish-parser/results")
+print("Defining the model...")
+print("Model definition is done.")
+model = bilstm_model.BiLSTM(words, pos_tag, rel_tag, word_ids)
+print(" ")
 
+print("Training the model...")
+model.train(train_directory)
+print(" ")
 
-runmode = "BiLSTM"  # Available arguments are BiLSTM or StackLSTM
-print("Selected model type:", runmode)
+print("Predicting...")
+predictions = model.predict(validation_directory)
+write_conll(f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_30.conllu",
+            predictions)
+print("Predictions are printed.")
+print(" ")
+# Evaluation with the validation data
+path = f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_30.conllu"
+os.system(
+    'python /Users/yaseminsavas/turkish-parser/src/evaluation_script/conll17_ud_eval.py -v -w /Users/yaseminsavas/turkish-parser/src/evaluation_script/weights.clas '
+    + validation_directory + ' ' + path + ' > ' + path + '.txt')
 
-if runmode == "BiLSTM":
-    print("Defining the model...")
-    model = bilstm_model.BiLSTM(words, position, relations, word_ids)
-    print("Model definition is done.")
-    print(" ")
-    print("Training the model...")
-
-    main_train(model, train_directory, validation_directory)
-
-elif runmode == "StackLSTM":
-    print("Defining the model...")
-    print("Model definition is done.")
-    model = stack_model.StackLSTM(words, position, relations, word_ids)
-    print(" ")
-    print("Training the model...")
-
-    main_train(model, train_directory, validation_directory)
-
-else:
-    raise("Provide a valid model name!")
+print("Performance is evaluated.")
+print(" ")
 
 print("End of the project.")
+print(" ")
 print("See files under the results folder to see the epoch performances on the validation set.")

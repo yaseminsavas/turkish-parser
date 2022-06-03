@@ -1,15 +1,13 @@
 '''
 
-I obtained some of these util functions from the original BiLSTM repository, and others from pytorch.org
+I obtained these util functions from the original BiLSTM repository
 
-Github Link:
-Paper Link:
+Paper Link: https://www.transacl.org/ojs/index.php/tacl/article/viewFile/885/198
+Github Repository: https://github.com/elikip/bist-parser
 
 '''
 
-import torch
 import re
-
 
 class ConllEntry:
     def __init__(self, id, form, lemma, pos, cpos, feats=None, parent_id=None, relation=None, deps=None, misc=None):
@@ -62,22 +60,3 @@ def write_conll(fn, conll_gen):
 numberRegex = re.compile("[0-9]+|[0-9]+\\.[0-9]+|[0-9]+[0-9,]+");
 def normalize(word):
     return 'NUM' if numberRegex.match(word) else word.lower()
-
-
-def argmax(vec):
-    # return the argmax as a python int
-    _, idx = torch.max(vec, 1)
-    return idx.item()
-
-
-def prepare_sequence(seq, to_ix):
-    idxs = [to_ix[w] for w in seq]
-    return torch.tensor(idxs, dtype=torch.long)
-
-
-# Compute log sum exp in a numerically stable way for the forward algorithm
-def log_sum_exp(vec):
-    max_score = vec[0, argmax(vec)]
-    max_score_broadcast = max_score.view(1, -1).expand(1, vec.size()[1])
-    return max_score + \
-        torch.log(torch.sum(torch.exp(vec - max_score_broadcast)))
