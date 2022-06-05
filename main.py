@@ -60,14 +60,14 @@ for i in range(30):
 
     print("Predicting...")
     predictions = model.predict(validation_directory)
-    write_conll(f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_{i+1}.conllu",
+    write_conll(f"results/dev_epoch_{i+1}.conllu",
                 predictions)
     print("Predictions are printed.")
     print(" ")
     # Evaluation with the validation data
-    path = f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_{i+1}.conllu"
+    path = f"results/dev_epoch_{i+1}.conllu"
     os.system(
-        'python /Users/yaseminsavas/turkish-parser/src/evaluation_script/conll17_ud_eval.py -v -w /Users/yaseminsavas/turkish-parser/src/evaluation_script/weights.clas '
+        'python src/evaluation_script/conll17_ud_eval.py -v -w src/evaluation_script/weights.clas '
         + validation_directory + ' ' + path + ' > ' + path + '.txt')
 
     print("Performance is evaluated.")
