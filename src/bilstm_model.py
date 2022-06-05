@@ -1,9 +1,9 @@
 from src.utils import read_conll
 from src.main_utils import get_embedding
 from operator import itemgetter
-import src.utils, random, src.decoder
+import src.utils, src.decoder
 import numpy as np
-from torch import autograd, optim, nn
+from torch import autograd, nn
 import torch
 
 
@@ -30,7 +30,7 @@ class BiLSTM(nn.Module):
         self.pos_emb = nn.Embedding(len(pos_tag), 25)
         self.ext_emb = nn.Embedding(len(self.external_embedding), 300)
 
-        self.mlp_in = nn.Linear(in_features=400,
+        self.mlp_in = nn.Linear(in_features=625,
                                 out_features=400)
 
         self.mlp_out = nn.Linear(in_features=400,
@@ -38,11 +38,12 @@ class BiLSTM(nn.Module):
 
     def fw2(self, sentence, i, j):
         if sentence[i].headfov is None:
-            sentence[i].headfov = torch.tanh_(self.mlp_in(torch.cat([sentence[i].lstms[0], sentence[i].lstms[1]], 2)))
+            sentence[i].headfov = self.mlp_in(torch.cat([sentence[i].lstms[0], sentence[i].lstms[1]], 2))
         if sentence[j].modfov is None:
-            sentence[j].modfov = torch.tanh_(self.mlp_in(torch.cat([sentence[j].lstms[0], sentence[j].lstms[1]], 2)))
+            sentence[j].modfov = self.mlp_in(torch.cat([sentence[j].lstms[0], sentence[j].lstms[1]], 2))
 
-        output = torch.tanh_(self.mlp_out(sentence[i].headfov + sentence[j].modfov))
+        output = torch.tanh(self.mlp_out(sentence[i].headfov + sentence[j].modfov))
+
         return output
 
     def forward(self, sentence):
@@ -50,19 +51,19 @@ class BiLSTM(nn.Module):
         conll_sentence = [entry for entry in sentence if isinstance(entry, src.utils.ConllEntry)]
 
         for entry, rentry in zip(conll_sentence, reversed(conll_sentence)):
+
             word_idxs = autograd.Variable(torch.LongTensor([self.words.get(entry.norm, 0)]))
             pos_idxs = autograd.Variable(torch.LongTensor([self.pos_tag[entry.pos]]))
-            emb_idxs = autograd.Variable(torch.LongTensor([self.extrnd.get(entry.form,
-                                                                           self.extrnd.get(entry.norm,
-                                                                                           0))]))
+            emb_idxs = autograd.Variable(torch.LongTensor([self.extrnd.get(entry.form, self.extrnd.get(entry.norm, 0))]))
 
             word_embeddings = self.word_emb(word_idxs)
             pos_embeddings = self.pos_emb(pos_idxs)
             ext_embeddings = self.ext_emb(emb_idxs)
 
             word_pos_cat = torch.cat((word_embeddings, pos_embeddings, ext_embeddings), 1).unsqueeze(1)
+
             entry.vec = word_pos_cat
-            lstm_output,_ = self.bilstm(word_pos_cat)
+            lstm_output, _ = self.bilstm(word_pos_cat)
 
             rword_idxs = autograd.Variable(torch.LongTensor([self.words.get(rentry.norm, 0)]))
             rpos_idxs = autograd.Variable(torch.LongTensor([self.pos_tag[rentry.pos]]))
@@ -78,8 +79,8 @@ class BiLSTM(nn.Module):
 
             rlstm_output, _ = self.bilstm(rword_pos_cat)
 
-            entry.lstms = [lstm_output, lstm_output]
-            rentry.lstms = [rlstm_output, rlstm_output]
+            entry.lstms = [word_pos_cat, lstm_output]
+            rentry.lstms = [rlstm_output, rword_pos_cat]
 
             entry.headfov = None
             entry.modfov = None
@@ -91,17 +92,16 @@ class BiLSTM(nn.Module):
                  range(0, len(conll_sentence))]
 
         scores = np.array([[output.detach().numpy()[0][0] for output in exprsRow] for exprsRow in exprs])
-        scores = np.mean(scores, axis=2)
 
         return scores, conll_sentence
 
     def evaluateLabel(self, sentence, i, j):
         if sentence[i].rheadfov is None:
-            sentence[i].rheadfov = torch.tanh_(self.mlp_in(torch.cat([sentence[i].lstms[0], sentence[i].lstms[1]], 2)))
+            sentence[i].rheadfov = self.mlp_in(torch.cat([sentence[i].lstms[0], sentence[i].lstms[1]], 2))
         if sentence[j].rmodfov is None:
-            sentence[j].rmodfov = torch.tanh_(self.mlp_in(torch.cat([sentence[j].lstms[0], sentence[j].lstms[1]], 2)))
+            sentence[j].rmodfov = self.mlp_in(torch.cat([sentence[j].lstms[0], sentence[j].lstms[1]], 2))
 
-        output = torch.tanh_(self.mlp_out(sentence[i].rheadfov + sentence[j].rmodfov))
+        output = torch.tanh(self.mlp_out(sentence[i].rheadfov + sentence[j].rmodfov))
 
         return output.detach().numpy()[0][0], output
 
@@ -110,6 +110,7 @@ class BiLSTM(nn.Module):
             for iSentence, sentence in enumerate(read_conll(conllFP)):
 
                 scores, conll_sentence = self.forward(sentence)
+                scores = np.max(scores,axis=2)
                 heads = src.decoder.parse_proj(scores)
 
                 for entry, head in zip(conll_sentence, heads):
@@ -118,6 +119,7 @@ class BiLSTM(nn.Module):
 
                 for modifier, head in enumerate(heads[1:]):
                     scores, exprs = self.evaluateLabel(conll_sentence, head, modifier + 1)
+
                     conll_sentence[modifier + 1].pred_relation = list(self.rel_tag)[max(enumerate(scores),
                                                                                         key=itemgetter(1))[0]]
                 yield sentence

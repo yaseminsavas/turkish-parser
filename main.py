@@ -13,7 +13,7 @@ Notes:
 2. The implementation is based on PyTorch.
 
 3. There are some differences between the original implementation and this repo.
-(Learning rate is 0.001, MLP activations are ReLu, a weight decay exists, the loss is hinge embedding loss..)
+(Learning rate - MLP activations - weight decay - the loss criterion function...)
 
 '''
 
@@ -53,7 +53,7 @@ print(" ")
 
 
 print("Training the model...")
-for i in range(2):
+for i in range(30):
     print("EPOCH:", i+1)
     trainer.train(model, train_directory)
     print(" ")
