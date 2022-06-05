@@ -1,6 +1,6 @@
 '''
 
-Project Title: Graph - Based BiLSTM in Turkish
+Project Title: Graph - Based BiLSTM in Turkish using PyTorch
 Author: Yasemin Savaş - 54085
 
 This project is based on this paper:
@@ -12,15 +12,15 @@ Notes:
 
 2. The implementation is based on PyTorch.
 
-3. There are subtle differences between the original implementation and this repo.
-(Learning rate is 0.001, MLP activations are ReLu, a weight decay exists, the loss is negative hinge embedding loss..)
+3. There are some differences between the original implementation and this repo.
+(Learning rate is 0.001, MLP activations are ReLu, a weight decay exists, the loss is hinge embedding loss..)
 
 '''
 
 from collections import Counter, OrderedDict
 from src.utils import *
 import os
-from src import bilstm_model
+from src import bilstm_model, trainer
 
 print("Gathering the data...")
 
@@ -45,30 +45,34 @@ rel_tag = list(OrderedDict.fromkeys(rel))
 print("Data gathering is done.")
 print(" ")
 
-print("Defining the model...")
-print("Model definition is done.")
+print("Defining the model & trainer...")
 model = bilstm_model.BiLSTM(words, pos_tag, rel_tag, word_ids)
+trainer = trainer.Trainer(model)
+print("Model & trainer definitions are done.")
 print(" ")
+
 
 print("Training the model...")
-model.train(train_directory)
-print(" ")
+for i in range(2):
+    print("EPOCH:", i+1)
+    trainer.train(model, train_directory)
+    print(" ")
 
-print("Predicting...")
-predictions = model.predict(validation_directory)
-write_conll(f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_30.conllu",
-            predictions)
-print("Predictions are printed.")
-print(" ")
-# Evaluation with the validation data
-path = f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_30.conllu"
-os.system(
-    'python /Users/yaseminsavas/turkish-parser/src/evaluation_script/conll17_ud_eval.py -v -w /Users/yaseminsavas/turkish-parser/src/evaluation_script/weights.clas '
-    + validation_directory + ' ' + path + ' > ' + path + '.txt')
+    print("Predicting...")
+    predictions = model.predict(validation_directory)
+    write_conll(f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_{i+1}.conllu",
+                predictions)
+    print("Predictions are printed.")
+    print(" ")
+    # Evaluation with the validation data
+    path = f"/Users/yaseminsavas/turkish-parser/results/dev_epoch_{i+1}.conllu"
+    os.system(
+        'python /Users/yaseminsavas/turkish-parser/src/evaluation_script/conll17_ud_eval.py -v -w /Users/yaseminsavas/turkish-parser/src/evaluation_script/weights.clas '
+        + validation_directory + ' ' + path + ' > ' + path + '.txt')
 
-print("Performance is evaluated.")
-print(" ")
+    print("Performance is evaluated.")
+    print(" ")
 
 print("End of the project.")
 print(" ")
-print("See files under the results folder to see the epoch performances on the validation set.")
+print("See files under the results folder to see the prediction performance on the validation set.")
